@@ -1,0 +1,70 @@
+#!/usr/bin/env node
+
+/*
+  luantai
+  Author: yuhan.wyh<yuhan.wyh@alibaba-inc.com>
+  Create: Mon May 25 2015 09:09:58 GMT+0800 (CST)
+*/
+
+"use strict";
+
+require( 'coffee-script' ).register();
+
+var util           = require( '../lib/util' );
+
+console.log( 'Welcome to use luantai!' );
+
+util.dotting( 'Initializing, please wait' );
+
+var ArgumentParser = require( 'argparse' ).ArgumentParser;
+
+var packageJSON    = require( '../package.json' );
+
+var version        = packageJSON.version;
+
+var stage          = require( '../lib/stage' );
+
+var parser         = new ArgumentParser( {
+  version    : version,
+  addHelp    : true,
+  desciptiom : 'luantai fontend unit test!'
+} );
+
+parser.addArgument(
+  [ '-c', '--config' ],
+  {
+    help : 'Config file path for luantai.'
+  }
+);
+
+parser.addArgument(
+  [ '-f', '--file' ],
+  {
+    help : 'The javascript file which you want to test.'
+  }
+);
+
+parser.addArgument(
+  [ '-p', '--plugin' ],
+  {
+    help : 'Luantai plugin.'
+  }
+);
+
+parser.addArgument(
+  [ '-e', '--env' ],
+  {
+    help : 'Enviroment prepare file.'
+  }
+);
+
+parser.addArgument(
+  [ '-r', '--rule' ],
+  {
+    help : 'Rule for filter test files. Only RegExp accepted!'
+  }
+);
+
+var args = parser.parseArgs();
+
+stage.start( args );

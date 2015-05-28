@@ -1,0 +1,36 @@
+{
+  "name":"@ali/luantai_new",
+  "main":"./lib/init",
+  "version":"1.0.0",
+  "homepage": "http://gitlab.alibaba-inc.com/fly/luantai",
+  "dependencies": {
+    "mocha"         : "*",
+    "phantomjs"     : "~1.9.1",
+    "istanbul"      : "*",
+    "coffee-script" : "*",
+    "event-pipe"    : "*",
+    "argparse"      : "*",
+    "esprima"       : "1.2.x",
+    "escodegen"     : "1.3.x",
+    "node-cube"     : "*",
+    "connect"       : "*",
+    "jade"          : "*",
+    "stylus"        : "*",
+    "debug"         : "*",
+    "colors"        : "*",
+    "@ali/tfs"      : "*",
+    "request"       : "*",
+    "cp"            : "*",
+    "body-parser"   : "*"
+  },
+  "engines": {
+    "node": ">= 0.8.4"
+  },
+  "bin": {
+    "luantai": "./bin/luantai"
+  },
+  "description": "鸾台---浏览器自动化测试工具",
+  "publishConfig": {
+    "registry": "http://registry.npm.alibaba-inc.com"
+  }
+}
