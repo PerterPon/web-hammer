@@ -28,41 +28,70 @@ scriptLoader   = require './script-loader'
 
 bodyParser     = require 'body-parser'
 
+eventPipe      = require 'event-pipe'
+
 class Server extends EventEmitter
 
   constructor : ( @options, done ) ->
     { port } = @options
-    @app = connect()
+    @app     = connect()
+    that     = @
 
-    new IstanbulPlugin @app, scriptLoader
+    pipe     = eventPipe()
+    pipe.on 'error', done
 
-    @useMiddlewares()
+    # mount middleware
+    pipe.lazy ->
+      that.useMiddlewares @
 
-    new CubePlugin @app, scriptLoader, {
-      dir : './res'
-    }
+    # listen port
+    pipe.lazy ->
+      that.app.listen port, done
 
-    @app.listen port, done
+    pipe.run()
 
   # /**
   #  * [useMiddlewares description]
   #  *
   #  * @return {[type]} [description]
   ##
-  useMiddlewares : ->
+  useMiddlewares : ( done ) ->
+    that    = @
     { app } = @
 
-    app.use @crossDomain() 
+    pipe = eventPipe()
+    pipe.on 'error', ( error ) ->
 
-    debug 'use middleware: blank'
-    app.use '/blank', @blankPage()
+    pipe.lazy ->
+      process.nextTick @
+    # before mount middleware for plugin
+    pipe.lazy ->
+      that.emit 'before_mount_middleware', @
 
-    debug 'user middleware: phantom ready'
-    app.use '/phantom_ready', @phantomReady()
+    # mount the luantai middleware
+    pipe.lazy ->
+      app.use that.crossDomain() 
 
-    app.use '/loadscript_done', @loadScriptDone()
+      debug 'use middleware: blank'
+      app.use '/blank', that.blankPage()
 
-    app.use '/runscript_done', @runScriptDone()
+      debug 'use middleware: phantom ready'
+      app.use '/phantom_ready', that.phantomReady()
+
+      debug 'use middleware: load script done'
+      app.use '/loadscript_done', that.loadScriptDone()
+
+      debug 'use middleware: run script done'
+      app.use '/runscript_done', that.runScriptDone()
+
+      @ null
+    # after mount middleware for plugin
+    pipe.lazy ->
+      that.emit 'after_mount_middleware', @
+
+    pipe.lazy ->
+      done null
+    pipe.run()
 
   crossDomain : ->
     { host, phantomPort } = @options
@@ -101,6 +130,7 @@ class Server extends EventEmitter
   ##
   loadScriptDone : ->
     ( req, res, next ) =>
+      console.log 'loadscript_done'
       @emit 'loadscript_done'
       res.end ''
 

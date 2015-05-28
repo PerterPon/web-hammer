@@ -21,7 +21,8 @@
     "@ali/tfs"      : "*",
     "request"       : "*",
     "cp"            : "*",
-    "body-parser"   : "*"
+    "body-parser"   : "*",
+    "expect.js"     : "*"
   },
   "engines": {
     "node": ">= 0.8.4"

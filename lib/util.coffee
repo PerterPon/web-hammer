@@ -28,7 +28,7 @@ module.exports =
 
     testFiles
 
-  dotting : ( text, ellipsis = '.' ) ->
+  dotting : ( text, ellipsis = '..' ) ->
     if '...' is ellipsis
       ellipsis  = '.'
     else
@@ -38,7 +38,7 @@ module.exports =
     process.stdout.write "\u001b[93m#{text}#{ellipsis}\u001b[0m"
     dottor = setTimeout ->
       module.exports.dotting text, ellipsis
-    , 100
+    , 500
 
   stopDot : ( text ) ->
     clearTimeout dottor

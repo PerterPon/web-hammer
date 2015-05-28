@@ -16,10 +16,15 @@ path   = require 'path'
 
 class IstanbulPlugin
 
-  constructor : ( @app, @options ) ->
-    instrumenter = new CodeInstrumenter
+  constructor : ( @options, done ) ->
+    @instrumenter = new CodeInstrumenter
       coverageVariable: '_test_'
-    @app.use '/', ( req, res, next ) ->
+
+    done null
+
+  beforeMountMiddleware : ( app, done ) ->
+    { instrumenter } = @
+    app.use '/', ( req, res, next ) ->
       { url } = req
       __end   = res.end.bind res
       res.end = ( code ) ->
@@ -31,11 +36,6 @@ class IstanbulPlugin
 
       next()
 
-  beforeMountMiddleware : ->
-
-  afterMountMiddleware : ->
-
-  scriptLoader : ->
-
+    done()
 
 module.exports = IstanbulPlugin

@@ -14,41 +14,59 @@ path       = require 'path'
 
 eventPipe  = require 'event-pipe'
 
-pluginPool = {}
+scriptLoader = require './script-loader'
+
+pluginPool   = {}
 
 class PluginManager
 
-  constructor : ( @options, plugins, done ) ->
+  constructor : ( @options, done ) ->
+    { plugins } = @options
     @initPlugins plugins, done
 
-  initPlugins : ( plugins, done ) ->
-    console.log plugins
+  initPlugins : ( plugins = {}, done ) ->
+
+    plugins = [ 
+      {
+        'istanbul' : {}
+      }
+      {
+        'cube' :
+          dir : '../'
+      }
+    ]
 
     pipe = eventPipe()
     pipe.on 'error', done
+    for pluginItem in plugins
+      for plugin, options of pluginItem
 
-    for plugin in plugins
-      # build in plugins.
-      try
-        pluginPath = path.join __dirname, '../plugins/', plugin
-        Plugin     = require pluginPath
+        # build in plugins.
+        try
+          pluginPath = path.join __dirname, '../plugins/', plugin
+          Plugin     = require pluginPath
 
-      # node_modules plugin or self plugin
-      try
-        Plugin     = require plugin
+        unless Plugin
+          # node_modules plugin or self plugin
+          try
+            Plugin     = require plugin
 
-      unless Plugin
-        error      = new Error "plugin: #{plugin} was not exists!"
-        return done error
-      else
-        debug "start to init plugin: #{plugin}"
+        unless Plugin
+          error      = new Error "plugin: #{plugin} was not exists!"
+          return done error
+        else
 
-        do ( plugin ) ->
-          pluginIns = null
-          pipe.lazy ->
-            pluginIns = new Plugin {}, @
-          pipe.lazy ->
-            pluginPool[ plugin ] = pluginIns
+          do ( plugin, Plugin ) ->
+            pluginIns   = null
+            pipe.lazy ->
+              debug "start to init plugin: #{plugin}"
+              pluginIns = new Plugin options, => process.nextTick @
+
+            pipe.lazy ->
+              if pluginIns.scriptLoader
+                scriptLoader.register pluginIns.scriptLoader()
+              pluginPool[ plugin ] = pluginIns
+              @ null
 
     pipe.lazy ->
       done null

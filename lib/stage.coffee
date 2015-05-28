@@ -107,15 +107,19 @@ class Stage
       @exit()
 
     pipe.lazy ->
+      debug 'start init plugins'
       that.initPlugins plugins, @
 
     pipe.add ->
+      debug 'start init server'
       that.initServer @
 
     pipe.add ->
+      debug 'start init phantom'
       that.initPhantom @
 
     pipe.add ->
+      debug 'start file test'
       that.startFileTest file, @
 
     pipe.run()
@@ -124,20 +128,20 @@ class Stage
     @pluginManager = new PluginManager plugins, done
 
   initServer : ( done ) ->
-    process.stdout.write '\u001b[93mtrying to start luantai server...\u001b[0m'
+    util.dotting 'trying to start luantai server'
     { masterPort } = @
     serverOption   =
       port : masterPort
     @server = new Server serverOption, done
+    @server.on 'before_mount_middleware', @beforeMountMiddleware.bind @
+    @server.on 'after_mount_middleware',  @afterMountMiddleware.bind  @
 
   # /**
   #  * [initPhantom start phantomjs]
   #  * @return {[type]} [description]
   ##
   initPhantom : ( done ) ->
-    process.stdout.cursorTo 0
-    process.stdout.clearLine 1
-    process.stdout.write '\u001b[92mluantai server start success!\u001b[0m\n'
+    util.stopDot 'luantai server start success!'
 
     console.log '\u001b[93mtrying to start phantomjs...\u001b[0m'
     phantomHost = path.join __dirname, './phantom-host.js'
@@ -186,6 +190,7 @@ class Stage
   #  * @return {[type]} [description]
   ##
   fileTestDone : ->
+    console.log 'fileTestDone'
     if 0 is @fileList.length
       @startRunTest()
       return
@@ -300,6 +305,52 @@ class Stage
     HtmlReport.writeReport cov, true
     console.log "coverage file was saved in #{coverageDir}"
     @exit()
+
+  beforeMountMiddleware : ( done ) ->
+    pipe = eventPipe()
+    pipe.on 'error', ( error ) =>
+      console.log '\u001b[31m before mount plugin middleware error \u001b[0m'
+      { message, stack } = error
+      console.log JSON.stringify { message, stack }
+      @exit 1
+
+    { pluginManager, server } = @
+    plugins = pluginManager.getPlugin()
+    for name, plugin of plugins
+      beforeMountMiddleware = plugin.beforeMountMiddleware
+      if beforeMountMiddleware
+        beforeMountMiddleware = beforeMountMiddleware.bind plugin
+        do ( name, plugin, beforeMountMiddleware ) ->
+          pipe.lazy ->
+            beforeMountMiddleware server.app, @
+
+    pipe.lazy ->
+      debug "all before plugin mount middleware done!"
+      done null
+    pipe.run()
+
+  afterMountMiddleware : ( done ) ->
+    pipe = eventPipe()
+    pipe.on 'error', ( error ) =>
+      console.log '\u001b[31m after mount plugin middleware error \u001b[0m'
+      { message, stack } = error
+      console.log JSON.stringify { message, stack }
+      @exit 1
+
+    { pluginManager, server } = @
+    plugins = pluginManager.getPlugin()
+    for name, plugin of plugins
+      afterMountMiddleware = plugin.afterMountMiddleware
+      if afterMountMiddleware
+        afterMountMiddleware = afterMountMiddleware.bind plugin
+        do ( name, plugin, afterMountMiddleware ) ->
+          pipe.lazy ->
+            afterMountMiddleware server.app, @
+
+    pipe.lazy ->
+      debug "all after plugin mount middleware done!"
+      done null
+    pipe.run()
 
   # /**
   #  * [exit exit everything]

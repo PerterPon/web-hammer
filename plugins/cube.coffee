@@ -22,11 +22,11 @@ childProcess = require 'child_process'
 
 class CubePlugin
 
-  constructor : ( @app, @scriptLoader, @options = {}, done = -> ) ->
+  constructor : ( @options, done = -> ) ->
 
     @initParams()
 
-    @injectLoader()
+    # @injectLoader()
 
     that = @
 
@@ -46,8 +46,8 @@ class CubePlugin
 
   initParams : ->
     cwd      = process.cwd()
-    @options.resDir  ?= path.join './res'
-    @options.testDir ?= path.join './tests'
+    @options.resDir  ?= path.join cwd, './res'
+    @options.testDir ?= path.join cwd, './tests'
 
     { resDir, testDir } = @options
     if false is path.isAbsolute resDir
@@ -61,19 +61,7 @@ class CubePlugin
 
   injectLoader : ->
 
-    { resDir, urlBase } = @options
-    @scriptLoader.register ( file, done ) ->
-      basename = path.basename file
-
-      done null, """
-      Cube.init( {
-        base : \"#{urlBase}\"
-      } );
-      Cube.use( \"/__test__/#{basename}\", function() {
-        console.log( 'luantai.scriptload.done' );
-        window.callPhantom( 'luantai.scriptload.done' );
-      } );
-      """
+    # @scriptLoader.register ( file, done ) ->
 
   prepareFile : ( done ) ->
 
@@ -100,22 +88,35 @@ class CubePlugin
     pipe.run()
 
   initCubeServer : ( done ) ->
-    { dir }    = @options
-    cwd        = process.cwd()
-    rootPath   = path.join cwd, dir
+    { resDir }    = @options
 
-    middleware = Cube.init
-      root       : rootPath
+    @middleware = Cube.init
+      root       : resDir
       middleware : true
 
-    @app.use '/', middleware
+    # @app.use '/', middleware
 
     done()
 
-  beforeMountMiddleware : ->
+  afterMountMiddleware : ( app, done ) ->
+    app.use '/', @middleware
 
-  afterMountMiddleware : ->
+    done()
 
   scriptLoader : ->
+    { resDir, urlBase } = @options
+
+    ( file, done ) ->
+      basename = path.basename file
+
+      done null, """
+      Cube.init( {
+        base : \"#{urlBase}\"
+      } );
+      Cube.use( \"/__test__/#{basename}\", function() {
+        console.log( 'luantai.scriptload.done' );
+        window.callPhantom( 'luantai.scriptload.done' );
+      } );
+      """
 
 module.exports = CubePlugin
