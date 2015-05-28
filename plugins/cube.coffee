@@ -26,8 +26,6 @@ class CubePlugin
 
     @initParams()
 
-    # @injectLoader()
-
     that = @
 
     pipe = eventPipe()
@@ -58,10 +56,6 @@ class CubePlugin
     @options.testDir = testDir
 
     @options.urlBase ?= '/'
-
-  injectLoader : ->
-
-    # @scriptLoader.register ( file, done ) ->
 
   prepareFile : ( done ) ->
 
@@ -94,8 +88,6 @@ class CubePlugin
       root       : resDir
       middleware : true
 
-    # @app.use '/', middleware
-
     done()
 
   afterMountMiddleware : ( app, done ) ->
@@ -103,10 +95,10 @@ class CubePlugin
 
     done()
 
-  scriptLoader : ->
+  scriptLoader : ( done ) ->
     { resDir, urlBase } = @options
 
-    ( file, done ) ->
+    done null, ( file, done ) ->
       basename = path.basename file
 
       done null, """
@@ -118,5 +110,11 @@ class CubePlugin
         window.callPhantom( 'luantai.scriptload.done' );
       } );
       """
+
+  injectJs : ->
+    cubeJsPath = path.join __dirname, '/node_modules/node-cube/runtime/cube.js'
+    [
+      cubeJsPath
+    ]
 
 module.exports = CubePlugin

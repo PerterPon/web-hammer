@@ -36,11 +36,17 @@ request       = require 'request'
 
 CubePlugin    = require '../plugins/cube'
 
-scriptLoader  = require './script-loader'
+ScriptLoader  = require './script-loader'
 
 istanbul      = require 'istanbul'
 
 host          = '127.0.0.1'
+
+injectedJs    = []
+
+feedbacks     = []
+
+feedbackMap   = {}
 
 class Stage
 
@@ -106,18 +112,32 @@ class Stage
       throw error
       @exit()
 
+    # init plugins
     pipe.lazy ->
       debug 'start init plugins'
       that.initPlugins plugins, @
 
+    # init script loader
+    pipe.lazy ->
+      debug 'start script loader'
+      that.scriptLoader @
+
+    # init feed back
+    pipe.lazy ->
+      debug 'start feed back'
+      that.feedback @
+
+    # init luantai server
     pipe.add ->
       debug 'start init server'
       that.initServer @
 
+    # init phantom
     pipe.add ->
       debug 'start init phantom'
       that.initPhantom @
 
+    # start file test
     pipe.add ->
       debug 'start file test'
       that.startFileTest file, @
@@ -151,7 +171,7 @@ class Stage
 
     debug "start phantom with param: #{phantomHost}, #{host}, #{masterPort}, #{phantomPort}"
 
-    @phantom    = childProcess.spawn phantomPath, [ phantomHost, masterPort, phantomPort, host, rootPath, '123' ]
+    @phantom    = childProcess.spawn phantomPath, [ phantomHost, masterPort, phantomPort, host, rootPath, injectedJs.join( ',' ), '123' ]
     @phantom.stdout.pipe process.stdout
     @phantom.stderr.pipe process.stderr
     @server.once 'phantom_ready', done
@@ -199,7 +219,7 @@ class Stage
 
     { phantomPort } = @
 
-    scriptLoader file, ( err, file ) ->
+    ScriptLoader file, ( err, file ) ->
 
       body = JSON.stringify
         file : file
@@ -306,6 +326,11 @@ class Stage
     console.log "coverage file was saved in #{coverageDir}"
     @exit()
 
+  # /**
+  #  * [beforeMountMiddleware plugin hooker]
+  #  * @param  {Function} done [description]
+  #  * @return {[type]}        [description]
+  ##
   beforeMountMiddleware : ( done ) ->
     pipe = eventPipe()
     pipe.on 'error', ( error ) =>
@@ -329,6 +354,11 @@ class Stage
       done null
     pipe.run()
 
+  # /**
+  #  * [afterMountMiddleware plugin hooker]
+  #  * @param  {Function} done [description]
+  #  * @return {[type]}        [description]
+  ##
   afterMountMiddleware : ( done ) ->
     pipe = eventPipe()
     pipe.on 'error', ( error ) =>
@@ -351,6 +381,129 @@ class Stage
       debug "all after plugin mount middleware done!"
       done null
     pipe.run()
+
+  # /**
+  #  * [scriptLoader plugin hooker]
+  #  * @param  {Function} done [description]
+  #  * @return {[type]}        [description]
+  ##
+  scriptLoader : ( done ) ->
+
+    { pluginManager } = @
+
+    pipe = eventPipe()
+    pipe.on 'error', done
+
+    plugins = pluginManager.getPlugin()
+    for name, plugin of plugins
+      scriptLoader = plugin.scriptLoader
+      if scriptLoader
+        scriptLoader = scriptLoader.bind plugin
+        do ( name, plugin, scriptLoader ) ->
+          pipe.lazy ->
+            scriptLoader @
+
+          pipe.lazy ( fn ) ->
+            ScriptLoader.register fn
+            done null
+
+    pipe.lazy ->
+      debug 'all script loader register done!'
+      done null
+
+    pipe.run()
+
+  # /**
+  #  * [injecteJs plugin hooker]
+  #  * @param  {Function} done [description]
+  #  * @return {[type]}        [description]
+  ##
+  injecteJs : ( done ) ->
+    { pluginManager } = @
+
+    pipe = eventPipe()
+    pipe.on 'error', done
+
+    plugins = pluginManager.getPlugin()
+    for name, plugin of plugins
+      injecteJs = plugin.injecteJs
+      if injecteJs
+        injecteJs = injecteJs.bind plugin
+        do ( name, plugin, injecteJs ) ->
+          pipe.lazy ->
+            injecteJs @
+
+          pipe.lazy ( willInectedJs = [] ) ->
+            injectedJs = injectedJs.concat willInectedJs
+            done null
+
+    pipe.lazy ->
+      debug 'all script loader register done!'
+      done null
+
+    pipe.run()
+
+  # /**
+  #  * [feedback plugin hooker]
+  #  * @param  {Function} done [description]
+  #  * @return {[type]}        [description]
+  ##
+  feedback : ( done ) ->
+    { pluginManager } = @
+
+    pipe = eventPipe()
+    pipe.on 'error', done
+
+    plugins = pluginManager.getPlugin()
+    for name, plugin of plugins
+      feedback   = plugin.feedback
+      if feedback
+        feedback = feedback.bind plugin
+        do ( name, plugin, feedback ) ->
+          pipe.lazy ->
+            feedback @
+
+          pipe.lazy ( feedbackVal = [] ) ->
+            feedbackMap[ name ] = feedbackVal
+            feedbacks = feedbacks.concat feedbackVal
+            done null
+
+    pipe.lazy ->
+      debug 'all script loader register done!'
+      done null
+
+    pipe.run()
+
+  # /**
+  #  * [finishTest plugin hooker]
+  #  * @param  {Function} done [description]
+  #  * @return {[type]}        [description]
+  ##
+  finishTest : ( feedbackData, done ) ->
+    { pluginManager } = @
+
+    pipe = eventPipe()
+    pipe.on 'error', done
+
+    plugins = pluginManager.getPlugin()
+    for name, plugin of plugins
+      finishTest   = plugin.finishTest
+      if finishTest
+        finishTest = finishTest.bind plugin
+        do ( name, plugin, feedback ) ->
+          pipe.lazy ->
+            feedbackVal = feedbackMap[ name ]
+            if undefined isnt feedbackVal
+              pluginFeedbackData = {}
+              for val in feedbackVal
+                pluginFeedbackData[ val ] = feedbackData[ val ]
+              finishTest pluginFeedbackData, @
+
+    pipe.lazy ->
+      done null
+
+    pipe.run()
+
 
   # /**
   #  * [exit exit everything]

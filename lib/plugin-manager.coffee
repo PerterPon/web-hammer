@@ -26,7 +26,7 @@ class PluginManager
 
   initPlugins : ( plugins = {}, done ) ->
 
-    plugins = [ 
+    plugins = [
       {
         'istanbul' : {}
       }
@@ -52,10 +52,10 @@ class PluginManager
             Plugin     = require plugin
 
         unless Plugin
-          error      = new Error "plugin: #{plugin} was not exists!"
+          error        = new Error "plugin: #{plugin} was not exists!"
           return done error
         else
-
+ 
           do ( plugin, Plugin ) ->
             pluginIns   = null
             pipe.lazy ->
@@ -63,8 +63,8 @@ class PluginManager
               pluginIns = new Plugin options, => process.nextTick @
 
             pipe.lazy ->
-              if pluginIns.scriptLoader
-                scriptLoader.register pluginIns.scriptLoader()
+              # if pluginIns.scriptLoader
+              #   scriptLoader.register pluginIns.scriptLoader()
               pluginPool[ plugin ] = pluginIns
               @ null
 
