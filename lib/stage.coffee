@@ -10,19 +10,19 @@
 
 require 'colors'
 
-debug   = require( 'debug' )( 'luantai' )
+debug         = require( 'debug' )( 'luantai' )
 
-connect = require 'connect'
+phantom       = require 'phantomjs'
 
-phantom = require 'phantomjs'
+path          = require 'path'
 
-path    = require 'path'
+fs            = require 'fs'
 
-fs      = require 'fs'
+fse           = require 'fs-extra'
 
-http    = require 'http'
+http          = require 'http'
 
-Server  = require './server'
+Server        = require './server'
 
 util          = require './util'
 
@@ -34,11 +34,9 @@ eventPipe     = require 'event-pipe'
 
 request       = require 'request'
 
-CubePlugin    = require '../plugins/cube'
-
 ScriptLoader  = require './script-loader'
 
-istanbul      = require 'istanbul'
+coffee        = require 'coffee-script'
 
 host          = '127.0.0.1'
 
@@ -51,25 +49,11 @@ feedbackMap   = {}
 class Stage
 
   constructor : ( @args ) ->
-    @clearSock()
     @generatePort()
     @parseConfig()
 
   # /**
-  #  * [clearSock clear the domain sock files]
-  #  * @return {[type]} [description]
-  ##
-  clearSock : ->
-    phantom = path.join __dirname, '../out/phantom.sock'
-    stage   = path.join __dirname, '../out/stage.sock'
-    plugin  = path.join __dirname, '../out/plugin.sock'
-    try
-      fs.unlinkSync phantom
-      fs.unlinkSync stage
-      fs.unlinkSync plugin
-
-  # /**
-  #  * [generatePort now have two server, 1. master server. 2. phantom server.]
+  #  * [generatePort now we have two servers, 1. master server. 2. phantom server.]
   #  * @return {[type]} [description]
   ##
   generatePort : ->
@@ -82,11 +66,12 @@ class Stage
   ##
   parseConfig : ->
     { config, file, plugins } = @args
+    cwd = process.cwd()
 
     # if pass an config file param.
     if config
       if false is path.isAbsolute config
-        config = path.join __dirname, '../', config
+        config = path.join cwd, config
       if false is fs.existsSync config
         error  = new Error "config file was not found: #{config}"
         throw err
@@ -96,9 +81,55 @@ class Stage
 
     # or get the param form arguments
     else
-      configItem = { file, plugins }
+      file         = [ file ]
+      configItem   = { file, plugins }
 
+    { file } = configItem
+    file     = @trans2Files file
+    file     = @filterFiles file
+
+    configItem.file = file
+    @fileList       = file
+
+    @parsedConfig   = configItem
     @init configItem
+
+  trans2Files : ( files ) ->
+    if false is Array.isArray files
+      files   = [ files ]
+
+    cwd = process.cwd()
+
+    testFiles = []
+    for file in files
+      if false is path.isAbsolute file
+        file  = path.join cwd, file
+
+      if true is fs.lstatSync( file ).isDirectory()
+        files     = util.iterateFolder file
+        testFiles = testFiles.concat files
+      else
+        if false is fs.existsSync file
+          error   = new Error "test file: #{file} was not exists!"
+          throw error
+          @exit()
+        else
+          testFiles.push file
+
+    testFiles
+
+  filterFiles : ( files ) ->
+    { rule } = @args
+    rule    ?= '.*'
+
+    filteredFiles = []
+    filterRule    = new RegExp rule
+    for file in files
+      basename    = path.basename file
+      if true is filterRule.test basename
+        filteredFiles.push file
+
+    filteredFiles
 
   init : ( config ) ->
     util.stopDot 'initialize done!'
@@ -111,6 +142,11 @@ class Stage
       debug JSON.stringify { message, stack }
       throw error
       @exit()
+
+    # copy project files to out folder
+    # pipe.lazy ->
+    #   debug 'copy files'
+    #   that.prapareFiles @
 
     # init plugins
     pipe.lazy ->
@@ -127,34 +163,94 @@ class Stage
       debug 'start feed back'
       that.feedback @
 
+    pipe.lazy ->
+      debug 'start deal inject js'
+      that.injectJs @
+
     # init luantai server
-    pipe.add ->
+    pipe.lazy ->
       debug 'start init server'
       that.initServer @
 
     # init phantom
-    pipe.add ->
+    pipe.lazy ->
       debug 'start init phantom'
       that.initPhantom @
 
     # start file test
-    pipe.add ->
+    pipe.lazy ->
       debug 'start file test'
-      that.startFileTest file, @
+      that.loadPhantomFile @
 
     pipe.run()
 
-  initPlugins : ( plugins = [], done ) ->
-    @pluginManager = new PluginManager plugins, done
+  # prapareFiles : ( done ) ->
+  #   prepareShell = path.join __dirname, '../bin/prepare-files'
+  #   luantaiDir   = path.join __dirname, '..'
+  #   projectDir   = process.cwd()
+  #   childProcess.spawn ''
+    # util.dotting 'preparing files'
+    # cwd = process.cwd()
+    # outPath  = path.join cwd, './out'
+    # fse.removeSync outPath
+    # fs.mkdirSync outPath
 
+    # copyFile = ( fPath ) ->
+    #   files      = fs.readdirSync fPath
+    #   for file in files
+    #     filePath = path.join fPath, file
+    #     console.log filePath
+    #     if true is fs.lstatSync( filePath ).isDirectory()
+    #       fs.mkdirSync filePath.replace cwd, outPath
+    #       copyFile filePath
+    #     else
+    #       content   = fs.readFileSync filePath
+    #       if path.extname( filePath ) in [ 'coffee' ]
+    #         content = coffee.compile "#{content}"
+
+    #       outFilePath = filePath.replace cwd, outPath
+    #       fs.writeFileSync outFilePath, content
+
+    # copyFile cwd
+    # util.dotting 'all files ready!'
+    # done null
+
+  # /**
+  #  * [initPlugins description]
+  #  * @param  {[type]}   plugins =             [] [description]
+  #  * @param  {Function} done    [description]
+  #  * @return {[type]}           [description]
+  ##
+  initPlugins : ( plugins = [], done ) ->
+    @pluginManager = new PluginManager plugins, @parsedConfig, done
+
+  # /**
+  #  * [initServer description]
+  #  * @param  {Function} done [description]
+  #  * @return {[type]}        [description]
+  ##
   initServer : ( done ) ->
     util.dotting 'trying to start luantai server'
+
     { masterPort } = @
     serverOption   =
       port : masterPort
+
     @server = new Server serverOption, done
-    @server.on 'before_mount_middleware', @beforeMountMiddleware.bind @
-    @server.on 'after_mount_middleware',  @afterMountMiddleware.bind  @
+    @bindServerEvent()
+
+  # /**
+  #  * [bindServerEvent bind server event]
+  #  * @param  {[type]} server [description]
+  #  * @return {[type]}        [description]
+  ##
+  bindServerEvent : ->
+    { server } = @
+    server.on 'before_mount_middleware', @beforeMountMiddleware.bind @
+    server.on 'after_mount_middleware',  @afterMountMiddleware.bind  @
+    server.on 'loadscript_done',         @loadPhantomFile.bind @
+    server.on 'runscript_done',          @finishTest.bind @
+    server.on 'exit',                    @exit.bind @
 
   # /**
   #  * [initPhantom start phantomjs]
@@ -170,47 +266,31 @@ class Stage
     rootPath    = path.join __dirname, '..'
 
     debug "start phantom with param: #{phantomHost}, #{host}, #{masterPort}, #{phantomPort}"
-
-    @phantom    = childProcess.spawn phantomPath, [ phantomHost, masterPort, phantomPort, host, rootPath, injectedJs.join( ',' ), '123' ]
+    @phantom    = childProcess.spawn phantomPath, [
+      # phantom host file add
+      phantomHost
+      # luantai server port
+      masterPort
+      # phantom server port 
+      phantomPort
+      # host address, now it is 127.0.0.1
+      host
+      # luantai root path
+      rootPath
+      # will injected js
+      injectedJs.join ','
+      # when test done, the val from "window" object pass to the plugin.
+      feedbacks.join ','
+    ]
     @phantom.stdout.pipe process.stdout
     @phantom.stderr.pipe process.stderr
     @server.once 'phantom_ready', done
 
   # /**
-  #  * [startFileTest description]
-  #  * @return {[type]} [description]
-  ##
-  startFileTest : ( filePath ) ->
-    console.log '\u001b[92mphantom start success!\u001b[0m'
-
-    { rule }   = @args
-    rule      ?= '.*'
-
-    if false is fs.existsSync filePath
-      error    = new Error "test file: #{filePath} was not exists!"
-      throw error
-
-    if false is path.isAbsolute filePath
-      filePath = path.join __dirname, '../', filePath
-    else
-      filePath = filePath
-
-    if true is fs.lstatSync( filePath ).isDirectory()
-      files    = util.iterateFolder filePath, rule
-    else
-      files    = [ filePath ]
-
-    @fileList  = files
-
-    @fileTestDone()
-    @server.on 'loadscript_done', @fileTestDone.bind @
-
-  # /**
   #  * [fileTestDone description]
   #  * @return {[type]} [description]
   ##
-  fileTestDone : ->
-    console.log 'fileTestDone'
+  loadPhantomFile : ->
     if 0 is @fileList.length
       @startRunTest()
       return
@@ -219,112 +299,34 @@ class Stage
 
     { phantomPort } = @
 
+    pipe = eventPipe()
+    pipe.on 'error', () ->
+
     ScriptLoader file, ( err, file ) ->
 
       body = JSON.stringify
-        file : file
+        file   : file
 
       reqOptions =
         url    : "http://#{host}:#{phantomPort}/loadscript"
         method : 'POST'
         body   : body
-        headers :
+        headers  :
           "Content-Type"   : "application/json"
           "Content-Length" : Buffer.byteLength body, 'utf8'
 
       request reqOptions, ->
 
+  # /**
+  #  * [startRunTest description]
+  #  * @return {[type]} [description]
+  ##
   startRunTest : ->
     { phantomPort } = @
     reqOptions =
       url : "http://#{host}:#{phantomPort}/runscript"
 
-    @server.on 'runscript_done', @onScriptDone.bind @
-
     request reqOptions, ->
-
-  onScriptDone : ( coverageObj ) ->
-    console.log """
-    \u001b[92mall test done!
-    \u001b[93mstart generate coverage file...\u001b[0m
-    """
-
-    objectUtils = istanbul.utils
-
-    cov         = JSON.parse coverageObj
-
-    lineForKey = ( summary, key ) ->
-      metrics = summary[key]
-      key += '                   '.substring(0, 12 - key.length)
-      color = ''
-      if metrics.pct < 60
-        color = '\u001b[31m'
-      else if metrics.pct < 75
-        color = '\u001b[93m'
-      else
-        color = '\u001b[92m'
-      result = [ key , ':', metrics.pct + '%', '(', metrics.covered + '/' + metrics.total, ')'].join(' ')
-      result = color + result + '\u001b[0m'
-      result
-
-    summaries = []
-    lists = []
-    for file of cov
-      summaries.push objectUtils.summarizeFileCoverage cov[ file ]
-
-    finalSummary = objectUtils.mergeSummaryObjects.apply null, summaries
-
-    lists.push '=============================== Coverage summary ==============================='
-    lists.push lineForKey(finalSummary, 'statements')
-    lists.push lineForKey(finalSummary, 'branches')
-    lists.push lineForKey(finalSummary, 'functions')
-    lists.push lineForKey(finalSummary, 'lines')
-    lists.push '================================================================================'
-    lists.push '\n'
-    console.log lists.join '\n'
-    lists = lists.join '</br>'
-    lists = lists
-    .replace(/\u001b\[31m/g, '<span class="fred">')
-    .replace(/\u001b\[93m/g, '<span class="fyelow">')
-    .replace(/\u001b\[92m/g, '<span class="fgreen">')
-    .replace(/\u001b\[0m/g, '</span>')
-
-    cwd = process.cwd()
-
-    coverageDir = path.join cwd, './coverage'
-
-    HtmlReport = istanbul.Report.create 'html',
-      verbose: false
-      dir: coverageDir
-      watermarks:
-        statements: [ 50, 80 ]
-        lines: [ 50, 80 ]
-        functions: [ 50, 80 ]
-        branches: [ 50, 80 ]
-
-    files = []
-    for key of cov
-      cov[path.join __dirname, '../res/', key] = cov[ key ]
-      cov[path.join __dirname, '../res/', key].path = path.join __dirname, '../res/', key
-      files.push path.join __dirname, '../res/', key
-
-    cov = store :
-      map : cov
-    cov.fileCoverageFor = (key) ->
-      cov.store.map[key]
-    cov.files = () ->
-      files
-
-    for key of cov.store.map
-      lastline = null
-      Object.keys(cov.store.map[key].l).forEach (lineNumber) ->
-        lastline = lineNumber
-      if lastline
-        delete cov.store.map[key].l[lastline]
-
-    HtmlReport.writeReport cov, true
-    console.log "coverage file was saved in #{coverageDir}"
-    @exit()
 
   # /**
   #  * [beforeMountMiddleware plugin hooker]
@@ -418,7 +420,7 @@ class Stage
   #  * @param  {Function} done [description]
   #  * @return {[type]}        [description]
   ##
-  injecteJs : ( done ) ->
+  injectJs : ( done ) ->
     { pluginManager } = @
 
     pipe = eventPipe()
@@ -426,12 +428,12 @@ class Stage
 
     plugins = pluginManager.getPlugin()
     for name, plugin of plugins
-      injecteJs = plugin.injecteJs
-      if injecteJs
-        injecteJs = injecteJs.bind plugin
-        do ( name, plugin, injecteJs ) ->
+      injectJs = plugin.injectJs
+      if injectJs
+        injectJs = injectJs.bind plugin
+        do ( name, plugin, injectJs ) ->
           pipe.lazy ->
-            injecteJs @
+            injectJs @
 
           pipe.lazy ( willInectedJs = [] ) ->
             injectedJs = injectedJs.concat willInectedJs
@@ -456,9 +458,9 @@ class Stage
 
     plugins = pluginManager.getPlugin()
     for name, plugin of plugins
-      feedback   = plugin.feedback
+      { feedback } = plugin
       if feedback
-        feedback = feedback.bind plugin
+        feedback   = feedback.bind plugin
         do ( name, plugin, feedback ) ->
           pipe.lazy ->
             feedback @
@@ -479,18 +481,28 @@ class Stage
   #  * @param  {Function} done [description]
   #  * @return {[type]}        [description]
   ##
-  finishTest : ( feedbackData, done ) ->
+  finishTest : ( feedback ) ->
+    console.log '\u001b[92mall test done!\u001b[0m'
+
+    try
+      feedbackData = JSON.parse feedback
+    catch e
+      feedbackData = {}
+
+    that = @
     { pluginManager } = @
 
     pipe = eventPipe()
-    pipe.on 'error', done
+    pipe.on 'error', ( error ) ->
+      throw error
 
     plugins = pluginManager.getPlugin()
     for name, plugin of plugins
       finishTest   = plugin.finishTest
       if finishTest
         finishTest = finishTest.bind plugin
-        do ( name, plugin, feedback ) ->
+
+        do ( name, plugin, finishTest ) ->
           pipe.lazy ->
             feedbackVal = feedbackMap[ name ]
             if undefined isnt feedbackVal
@@ -500,10 +512,10 @@ class Stage
               finishTest pluginFeedbackData, @
 
     pipe.lazy ->
-      done null
+      console.log 'luantai will exit!'
+      that.exit()
 
     pipe.run()
-
 
   # /**
   #  * [exit exit everything]

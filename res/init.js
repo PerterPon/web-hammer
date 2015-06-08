@@ -39,7 +39,6 @@ function jsonP( url, method, data ) {
   }
   var xhr = new XMLHttpRequest();
   
-  // xhr.setRequestHeader( "Content-Type", "application/json" );
   xhr.open( method, url );
   xhr.send( data );
 

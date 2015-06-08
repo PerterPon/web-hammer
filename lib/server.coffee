@@ -46,7 +46,11 @@ class Server extends EventEmitter
 
     # listen port
     pipe.lazy ->
-      that.app.listen port, done
+      that.app.listen port, @
+
+    pipe.lazy ->
+      console.log "\nmaster server was running on port: #{port}"
+      done null
 
     pipe.run()
 
@@ -59,7 +63,7 @@ class Server extends EventEmitter
     that    = @
     { app } = @
 
-    pipe = eventPipe()
+    pipe    = eventPipe()
     pipe.on 'error', ( error ) ->
 
     pipe.lazy ->
@@ -70,19 +74,22 @@ class Server extends EventEmitter
 
     # mount the luantai middleware
     pipe.lazy ->
-      app.use that.crossDomain() 
+      app.use that.crossDomain()
 
-      debug 'use middleware: blank'
+      # debug 'use middleware: blank'
       app.use '/blank', that.blankPage()
 
-      debug 'use middleware: phantom ready'
+      # debug 'use middleware: phantom ready'
       app.use '/phantom_ready', that.phantomReady()
 
-      debug 'use middleware: load script done'
+      # debug 'use middleware: load script done'
       app.use '/loadscript_done', that.loadScriptDone()
 
-      debug 'use middleware: run script done'
+      # debug 'use middleware: run script done'
       app.use '/runscript_done', that.runScriptDone()
+
+      # debug 'use middleware: exit'
+      app.use '/exit', that.exit()
 
       @ null
     # after mount middleware for plugin
@@ -130,7 +137,6 @@ class Server extends EventEmitter
   ##
   loadScriptDone : ->
     ( req, res, next ) =>
-      console.log 'loadscript_done'
       @emit 'loadscript_done'
       res.end ''
 
@@ -158,5 +164,14 @@ class Server extends EventEmitter
       { name } = query
       @emit "file_done", name
       res.end 'ok'
+
+  # /**
+  #  * [exit description]
+  #  * @return {[type]} [description]
+  ##
+  exit : ->
+    ( req, res, next ) =>
+      res.end 'ok'
+      @emit 'exit'
 
 module.exports = Server

@@ -1,0 +1,11 @@
+
+BIN_COFFEE="$1/node_modules/.bin/coffee"
+
+cd $2
+rm -rf ./out
+mkdir -p ./out/test
+echo filedone
+rsync -av . ./out/test --exclude out --exclude .git --exclude node_modules
+rsync -av ./node_modules ./out/test
+$BIN_COFFEE -cb out/test
+find ./out/test -path ./out/test/node_modules -prune -o -name "*.coffee" -exec rm -rf {} \;

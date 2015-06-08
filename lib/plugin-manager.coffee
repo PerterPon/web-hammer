@@ -8,63 +8,75 @@
 
 "use strict"
 
-debug      = require( 'debug' )( 'luantai:plugin' )
+debug        = require( 'debug' )( 'luantai:plugin' )
 
-path       = require 'path'
+path         = require 'path'
 
-eventPipe  = require 'event-pipe'
+eventPipe    = require 'event-pipe'
 
 scriptLoader = require './script-loader'
+
+os           = require 'options-stream'
 
 pluginPool   = {}
 
 class PluginManager
 
-  constructor : ( @options, done ) ->
+  constructor : ( @options, @parsedConfig, done ) ->
     { plugins } = @options
     @initPlugins plugins, done
 
   initPlugins : ( plugins = {}, done ) ->
 
+    { file } = @parsedConfig
+
     plugins = [
+      {
+        'cube' :
+          testDir  : './test'
+          resDir   : './res'
+      }
       {
         'istanbul' : {}
       }
-      {
-        'cube' :
-          dir : '../'
-      }
     ]
+
+    # hack for istanbul plugin
+    cubeOptions = null
 
     pipe = eventPipe()
     pipe.on 'error', done
     for pluginItem in plugins
       for plugin, options of pluginItem
 
+        # hack for istanbul plugin
+        if 'cube' is plugin
+          cubeOptions   = options
+
         # build in plugins.
         try
-          pluginPath = path.join __dirname, '../plugins/', plugin
-          Plugin     = require pluginPath
+          pluginPath    = path.join __dirname, '../plugins/', plugin
+          Plugin        = require pluginPath
 
         unless Plugin
           # node_modules plugin or self plugin
           try
-            Plugin     = require plugin
+            Plugin      = require plugin
 
         unless Plugin
-          error        = new Error "plugin: #{plugin} was not exists!"
+          error         = new Error "plugin: #{plugin} was not exists!"
           return done error
         else
  
-          do ( plugin, Plugin ) ->
+          do ( plugin, Plugin, options ) ->
             pluginIns   = null
+            if 'istanbul' is plugin
+              options   = os {}, options, cubeOptions, { file }
             pipe.lazy ->
               debug "start to init plugin: #{plugin}"
               pluginIns = new Plugin options, => process.nextTick @
 
             pipe.lazy ->
-              # if pluginIns.scriptLoader
-              #   scriptLoader.register pluginIns.scriptLoader()
               pluginPool[ plugin ] = pluginIns
               @ null
 

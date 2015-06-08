@@ -15,17 +15,17 @@ path = require 'path'
 dottor = null
 
 module.exports =
-  ierateFolder : ( fPath, rule ) ->
+  iterateFolder : ( fPath ) ->
     testFiles = []
-    rule      = new RegExp rule
     getFile   = ( fPath ) ->
       files   = fs.readdirSync fPath
       for file in files
         if true is fs.lstatSync( path.join fPath, file ).isDirectory()
           getFile path.join fPath, file
         else
-          testFiles.push file if rule.test file
+          testFiles.push path.join fPath, file
 
+    getFile fPath
     testFiles
 
   dotting : ( text, ellipsis = '..' ) ->

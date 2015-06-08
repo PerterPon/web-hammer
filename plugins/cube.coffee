@@ -16,9 +16,11 @@ cp   = require 'cp'
 
 fs   = require 'fs'
 
-eventPipe = require 'event-pipe'
+eventPipe    = require 'event-pipe'
 
 childProcess = require 'child_process'
+
+CUBE_BACKUP  = './__test__'
 
 class CubePlugin
 
@@ -44,16 +46,8 @@ class CubePlugin
 
   initParams : ->
     cwd      = process.cwd()
-    @options.resDir  ?= path.join cwd, './res'
-    @options.testDir ?= path.join cwd, './tests'
-
-    { resDir, testDir } = @options
-    if false is path.isAbsolute resDir
-      resDir  = path.join cwd, resDir
-    if false is path.isAbsolute testDir
-      testDir = path.join cwd, testDir
-    @options.resDir  = resDir
-    @options.testDir = testDir
+    @options.resDir  ?= './res'
+    @options.testDir ?= './tests'
 
     @options.urlBase ?= '/'
 
@@ -61,10 +55,17 @@ class CubePlugin
 
     { testDir, resDir } = @options
 
+    cwd = process.cwd()
+
+    if false is path.isAbsolute resDir
+      resDir  = path.join cwd, resDir
+    if false is path.isAbsolute testDir
+      testDir = path.join cwd, testDir
+
     pipe = eventPipe()
     pipe.on 'error', done
 
-    resTestDir = path.join resDir, './__test__'
+    resTestDir = path.join resDir, CUBE_BACKUP
 
     pipe.lazy ->
       cp = childProcess.spawn 'rm', [ '-rf', resTestDir ]
@@ -72,7 +73,7 @@ class CubePlugin
         @ null
 
     pipe.lazy ->
-      cp = childProcess.spawn 'cp', [ '-r', testDir, path.join resDir, './__test__' ]
+      cp = childProcess.spawn 'cp', [ '-r', testDir, path.join resDir, CUBE_BACKUP ]
       cp.on 'exit', =>
         @ null
 
@@ -82,39 +83,51 @@ class CubePlugin
     pipe.run()
 
   initCubeServer : ( done ) ->
-    { resDir }    = @options
+    { resDir }  = @options
 
+    cwd = process.cwd()
     @middleware = Cube.init
-      root       : resDir
+      root       : path.join cwd, resDir
       middleware : true
+      processors : [ 'cube-ejs', 'cube-jade', 'cube-less', 'cube-stylus' ]
 
     done()
 
   afterMountMiddleware : ( app, done ) ->
-    app.use '/', @middleware
+    app.use '/', ( req, res, next ) =>
+      @middleware req, res, next
 
     done()
 
   scriptLoader : ( done ) ->
-    { resDir, urlBase } = @options
+    { resDir, testDir, urlBase } = @options
+    cwd = process.cwd()
 
     done null, ( file, done ) ->
-      basename = path.basename file
+      baseFile = path.join cwd, testDir
+      file     = file.replace baseFile, ''
 
       done null, """
       Cube.init( {
-        base : \"#{urlBase}\"
+        base : \"#{urlBase}\",
+        enableCss : true
       } );
-      Cube.use( \"/__test__/#{basename}\", function() {
-        console.log( 'luantai.scriptload.done' );
+      Cube.use( \"/__test__#{file}\", function() {
         window.callPhantom( 'luantai.scriptload.done' );
       } );
       """
 
-  injectJs : ->
-    cubeJsPath = path.join __dirname, '/node_modules/node-cube/runtime/cube.js'
-    [
+  injectJs : ( done ) ->
+    cubeJsPath  = path.join __dirname, '../node_modules/node-cube/runtime/cube.min.js'
+    cubeCssPath = path.join __dirname, '../node_modules/node-cube/runtime/cube_css.min.js'
+    ejsRuntime  = path.join __dirname, '../node_modules/node-cube/runtime/ejs_runtime.min.js'
+    jadeRuntime = path.join __dirname, '../node_modules/node-cube/runtime/jade_runtime.min.js'
+    done null, [
       cubeJsPath
+      cubeCssPath
+      ejsRuntime
+      jadeRuntime
+      '/Users/Pon/Documents/Project/luantai/alishu-board/res/js/core/jquery-2.1.1.min.js'
     ]
 
 module.exports = CubePlugin

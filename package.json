@@ -22,7 +22,13 @@
     "request"       : "*",
     "cp"            : "*",
     "body-parser"   : "*",
-    "expect.js"     : "*"
+    "expect.js"     : "*",
+    "options-stream": "*",
+    "cube-ejs"      : "*",
+    "cube-jade"     : "*",
+    "cube-less"     : "*",
+    "cube-stylus"   : "*",
+    "fs-extra"      : "*"
   },
   "engines": {
     "node": ">= 0.8.4"

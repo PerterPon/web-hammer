@@ -40,21 +40,21 @@ parser.addArgument(
 parser.addArgument(
   [ '-f', '--file' ],
   {
-    help : 'The javascript file which you want to test.'
+    help : 'The javascript file which you want to test. Multi file splited by \',\'.'
   }
 );
 
 parser.addArgument(
   [ '-p', '--plugin' ],
   {
-    help : 'Luantai plugin.'
+    help : 'Luantai plugin. Multi file splited by \',\'.'
   }
 );
 
 parser.addArgument(
   [ '-e', '--env' ],
   {
-    help : 'Enviroment prepare file.'
+    help : 'Enviroment prepare file. Multi file splited by \',\'.'
   }
 );
 
