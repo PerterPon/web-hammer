@@ -19,6 +19,7 @@ loader = ( file, done ) ->
       #{data}
       ;window.callPhantom( 'luantai.scriptload.done' );
       """
+      done null, data
 
 processers.push loader
 

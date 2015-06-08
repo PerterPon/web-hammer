@@ -12,10 +12,6 @@ require( 'coffee-script' ).register();
 
 var util           = require( '../lib/util' );
 
-console.log( 'Welcome to use luantai!' );
-
-util.dotting( 'Initializing, please wait' );
-
 var ArgumentParser = require( 'argparse' ).ArgumentParser;
 
 var packageJSON    = require( '../package.json' );
@@ -45,7 +41,7 @@ parser.addArgument(
 );
 
 parser.addArgument(
-  [ '-p', '--plugin' ],
+  [ '-p', '--plugins' ],
   {
     help : 'Luantai plugin. Multi file splited by \',\'.'
   }
@@ -66,5 +62,9 @@ parser.addArgument(
 );
 
 var args = parser.parseArgs();
+
+console.log( 'Welcome to use luantai!' );
+
+util.dotting( 'Initializing, please wait' );
 
 stage.start( args );

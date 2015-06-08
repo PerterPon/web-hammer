@@ -127,7 +127,6 @@ class CubePlugin
       cubeCssPath
       ejsRuntime
       jadeRuntime
-      '/Users/Pon/Documents/Project/luantai/alishu-board/res/js/core/jquery-2.1.1.min.js'
     ]
 
 module.exports = CubePlugin

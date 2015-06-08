@@ -65,7 +65,7 @@ class Stage
   #  * @return {[type]} [description]
   ##
   parseConfig : ->
-    { config, file, plugins } = @args
+    { config, file, plugins, env, rule } = @args
     cwd = process.cwd()
 
     # if pass an config file param.
@@ -82,11 +82,23 @@ class Stage
     # or get the param form arguments
     else
       file         = [ file ]
-      configItem   = { file, plugins }
+      plugins     ?= ''
+      pluginItems  = plugins.split ','
+      pluginInfos  = []
+      for plugin in pluginItems
+        continue if '' is plugin
+        pluginItem = {}
+        pluginItem[ plugin ] = {}
+        pluginInfos.push pluginItem
 
-    { file } = configItem
+      configItem   = { env, file, plugins : pluginInfos, rule }
+
+    { file, env, rule }  = configItem
+
+    env      = @trans2Files env
     file     = @trans2Files file
-    file     = @filterFiles file
+    file     = @filterFiles file, rule
+    configItem.env  = env
 
     configItem.file = file
     @fileList       = file
@@ -95,6 +107,9 @@ class Stage
     @init configItem
 
   trans2Files : ( files ) ->
+    unless files?
+      return []
+
     if false is Array.isArray files
       files   = [ files ]
 
@@ -118,8 +133,7 @@ class Stage
 
     testFiles
 
-  filterFiles : ( files ) ->
-    { rule } = @args
+  filterFiles : ( files, rule ) ->
     rule    ?= '.*'
 
     filteredFiles = []
@@ -142,11 +156,6 @@ class Stage
       debug JSON.stringify { message, stack }
       throw error
       @exit()
-
-    # copy project files to out folder
-    # pipe.lazy ->
-    #   debug 'copy files'
-    #   that.prapareFiles @
 
     # init plugins
     pipe.lazy ->
@@ -183,37 +192,6 @@ class Stage
       that.loadPhantomFile @
 
     pipe.run()
-
-  # prapareFiles : ( done ) ->
-  #   prepareShell = path.join __dirname, '../bin/prepare-files'
-  #   luantaiDir   = path.join __dirname, '..'
-  #   projectDir   = process.cwd()
-  #   childProcess.spawn ''
-    # util.dotting 'preparing files'
-    # cwd = process.cwd()
-    # outPath  = path.join cwd, './out'
-    # fse.removeSync outPath
-    # fs.mkdirSync outPath
-
-    # copyFile = ( fPath ) ->
-    #   files      = fs.readdirSync fPath
-    #   for file in files
-    #     filePath = path.join fPath, file
-    #     console.log filePath
-    #     if true is fs.lstatSync( filePath ).isDirectory()
-    #       fs.mkdirSync filePath.replace cwd, outPath
-    #       copyFile filePath
-    #     else
-    #       content   = fs.readFileSync filePath
-    #       if path.extname( filePath ) in [ 'coffee' ]
-    #         content = coffee.compile "#{content}"
-
-    #       outFilePath = filePath.replace cwd, outPath
-    #       fs.writeFileSync outFilePath, content
-
-    # copyFile cwd
-    # util.dotting 'all files ready!'
-    # done null
 
   # /**
   #  * [initPlugins description]
@@ -259,14 +237,18 @@ class Stage
   initPhantom : ( done ) ->
     util.stopDot 'luantai server start success!'
 
+    { env }       = @parsedConfig
+    willInectedJs = JSON.parse JSON.stringify injectedJs
+    willInectedJs = willInectedJs.concat env
+
     console.log '\u001b[93mtrying to start phantomjs...\u001b[0m'
-    phantomHost = path.join __dirname, './phantom-host.js'
-    phantomPath = path.join __dirname, '../node_modules/.bin/phantomjs'
+    phantomHost   = path.join __dirname, './phantom-host.js'
+    phantomPath   = path.join __dirname, '../node_modules/.bin/phantomjs'
     { masterPort, phantomPort } = @
-    rootPath    = path.join __dirname, '..'
+    rootPath      = path.join __dirname, '..'
 
     debug "start phantom with param: #{phantomHost}, #{host}, #{masterPort}, #{phantomPort}"
-    @phantom    = childProcess.spawn phantomPath, [
+    @phantom      = childProcess.spawn phantomPath, [
       # phantom host file add
       phantomHost
       # luantai server port
@@ -278,13 +260,13 @@ class Stage
       # luantai root path
       rootPath
       # will injected js
-      injectedJs.join ','
+      willInectedJs.join ','
       # when test done, the val from "window" object pass to the plugin.
       feedbacks.join ','
     ]
+    @server.once 'phantom_ready', done
     @phantom.stdout.pipe process.stdout
     @phantom.stderr.pipe process.stderr
-    @server.once 'phantom_ready', done
 
   # /**
   #  * [fileTestDone description]
@@ -337,14 +319,14 @@ class Stage
     pipe = eventPipe()
     pipe.on 'error', ( error ) =>
       console.log '\u001b[31m before mount plugin middleware error \u001b[0m'
-      { message, stack } = error
+      { message, stack }      = error
       console.log JSON.stringify { message, stack }
       @exit 1
 
     { pluginManager, server } = @
     plugins = pluginManager.getPlugin()
     for name, plugin of plugins
-      beforeMountMiddleware = plugin.beforeMountMiddleware
+      beforeMountMiddleware   = plugin.beforeMountMiddleware
       if beforeMountMiddleware
         beforeMountMiddleware = beforeMountMiddleware.bind plugin
         do ( name, plugin, beforeMountMiddleware ) ->
@@ -353,7 +335,7 @@ class Stage
 
     pipe.lazy ->
       debug "all before plugin mount middleware done!"
-      done null
+      process.nextTick done
     pipe.run()
 
   # /**
@@ -381,7 +363,7 @@ class Stage
 
     pipe.lazy ->
       debug "all after plugin mount middleware done!"
-      done null
+      process.nextTick done
     pipe.run()
 
   # /**
@@ -411,7 +393,7 @@ class Stage
 
     pipe.lazy ->
       debug 'all script loader register done!'
-      done null
+      process.nextTick done
 
     pipe.run()
 
@@ -441,7 +423,7 @@ class Stage
 
     pipe.lazy ->
       debug 'all script loader register done!'
-      done null
+      process.nextTick done
 
     pipe.run()
 
@@ -472,7 +454,7 @@ class Stage
 
     pipe.lazy ->
       debug 'all script loader register done!'
-      done null
+      process.nextTick done
 
     pipe.run()
 
@@ -523,8 +505,8 @@ class Stage
   #  * @return {[type]}      [description]
   ##
   exit : ( code ) ->
+    @phantom?.kill()
     process.exit code
-    @phantom?.exit code
 
 module.exports = 
   start : ( args ) ->

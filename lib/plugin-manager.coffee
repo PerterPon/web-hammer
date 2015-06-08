@@ -22,24 +22,12 @@ pluginPool   = {}
 
 class PluginManager
 
-  constructor : ( @options, @parsedConfig, done ) ->
-    { plugins } = @options
+  constructor : ( plugins, @parsedConfig, done ) ->
     @initPlugins plugins, done
 
-  initPlugins : ( plugins = {}, done ) ->
+  initPlugins : ( plugins = [], done ) ->
 
     { file } = @parsedConfig
-
-    plugins = [
-      {
-        'cube' :
-          testDir  : './test'
-          resDir   : './res'
-      }
-      {
-        'istanbul' : {}
-      }
-    ]
 
     # hack for istanbul plugin
     cubeOptions = null
@@ -67,7 +55,7 @@ class PluginManager
           error         = new Error "plugin: #{plugin} was not exists!"
           return done error
         else
- 
+
           do ( plugin, Plugin, options ) ->
             pluginIns   = null
             if 'istanbul' is plugin
@@ -81,7 +69,8 @@ class PluginManager
               @ null
 
     pipe.lazy ->
-      done null
+
+      process.nextTick done
 
     pipe.run()
 
