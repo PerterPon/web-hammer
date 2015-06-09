@@ -18,6 +18,7 @@ istanbul = require 'istanbul'
 
 FEED_BACK_VAL = '__luantaicoverageval2__'
 
+# hack
 CUBE_BACKUP   = '__test__'
 
 class IstanbulPlugin
