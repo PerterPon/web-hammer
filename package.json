@@ -1,7 +1,7 @@
 {
   "name":"web-hammer",
   "main":"./lib/init",
-  "version":"1.0.0",
+  "version":"1.0.1",
   "homepage": "https://github.com/PerterPon/web-hammer",
   "dependencies": {
     "mocha"         : "*",
@@ -31,7 +31,7 @@
     "fs-extra"      : "*"
   },
   "bin": {
-    "hammer": "./bin/luantai",
+    "hammer": "./bin/luantai"
   },
   "engines": {
     "node": ">= 0.12.0"

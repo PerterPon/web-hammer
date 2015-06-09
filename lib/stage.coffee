@@ -66,6 +66,11 @@ class Stage
   ##
   parseConfig : ->
     { config, file, plugins, env, rule } = @args
+    unless config? or file?
+      console.log '\n\u001b[31myou musch specify an config file or -f param!\u001b[0m'
+      @exit 1
+      return
+
     cwd = process.cwd()
 
     # if pass an config file param.
