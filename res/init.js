@@ -1,7 +1,7 @@
 
 /*
   init
-  Author: yuhan.wyh<yuhan.wyh@alibaba-inc.com>
+  Author: PerterPon<PerterPon@gmail.com>
   Create: Wed May 27 2015 06:28:00 GMT+0800 (CST)
 */
 

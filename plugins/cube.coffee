@@ -2,7 +2,7 @@
 # /*
 #   cube
 # */
-# Author: yuhan.wyh<yuhan.wyh@alibaba-inc.com>
+# Author: PerterPon<PerterPon@gmail.com>
 # Create: Wed May 27 2015 07:08:39 GMT+0800 (CST)
 # 
 

@@ -1,11 +1,11 @@
 {
-  "name":"@ali/luantai_new",
+  "name":"web-hammer",
   "main":"./lib/init",
   "version":"1.0.0",
-  "homepage": "http://gitlab.alibaba-inc.com/fly/luantai",
+  "homepage": "https://github.com/PerterPon/web-hammer",
   "dependencies": {
     "mocha"         : "*",
-    "phantomjs"     : "~1.9.1",
+    "phantomjs"     : "*",
     "istanbul"      : "*",
     "coffee-script" : "*",
     "event-pipe"    : "*",
@@ -31,13 +31,10 @@
     "fs-extra"      : "*"
   },
   "engines": {
-    "node": ">= 0.8.4"
+    "node": ">= 0.12.0"
   },
   "bin": {
     "luantai": "./bin/luantai"
   },
-  "description": "鸾台---浏览器自动化测试工具",
-  "publishConfig": {
-    "registry": "http://registry.npm.alibaba-inc.com"
-  }
+  "description": "鸾台---浏览器自动化测试工具"
 }

@@ -2,7 +2,7 @@
 # /*
 #   istanbul
 # */
-# Author: yuhan.wyh<yuhan.wyh@alibaba-inc.com>
+# Author: PerterPon<PerterPon@gmail.com>
 # Create: Wed May 27 2015 07:24:48 GMT+0800 (CST)
 # 
 
